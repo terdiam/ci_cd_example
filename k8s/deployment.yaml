@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-cicd
+spec:
+  selector:
+    matchLabels:
+      app: example
+      tier: cicd
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: example
+        tier: cicd
+    spec:
+      containers:
+      - name: example-cicd
+        image: quantumteknologi/example-cicd:latest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        ports:
+        - containerPort: 80
+      imagePullSecrets:
+        - name: quantum

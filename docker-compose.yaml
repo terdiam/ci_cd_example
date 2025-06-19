@@ -1,0 +1,9 @@
+services:
+  example-cicd:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    
+    image: quantumteknologi/example-cicd:latest
+    ports:
+      - 80:80
