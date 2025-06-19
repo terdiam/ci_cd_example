@@ -5,8 +5,8 @@ pipeline {
     IMAGE_NAME = 'example-cicd'
     NAME_DEPLOYMENT = "example-cicd"
     REGISTRY = credentials('registry-docker')
-    TAG_MESSAGE = "${GIT_TAG_MESSAGE}"
-    TAG = "${GIT_TAG_NAME}"
+    TAG_MESSAGE = gitTagMessage()
+    TAG = gitTagName()
   }
 
   triggers {
