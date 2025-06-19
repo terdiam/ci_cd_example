@@ -25,9 +25,9 @@ pipeline {
                 sh 'git fetch --tags'
                 def tag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
                 if (tag) {
-                    env.GIT_TAG_NAME = tag
+                    GIT_TAG_NAME = tag
                     echo "TAG: $tag"
-                    echo "Build triggered by tag: ${env.GIT_TAG_NAME}"
+                    echo "Build triggered by tag: $GIT_TAG_NAME"
                 } else {
                     echo "This is not a tag build."
                 }
