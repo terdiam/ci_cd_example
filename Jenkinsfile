@@ -5,8 +5,7 @@ pipeline {
     IMAGE_NAME = 'example-cicd'
     NAME_DEPLOYMENT = "example-cicd"
     REGISTRY = credentials('registry-docker')
-    TAG_MESSAGE = "${GIT_TAG_MESSAGE}"
-    TAG = "${GIT_TAG_NAME}"
+    GIT_TAG_NAME = ''
   }
 
   triggers {
@@ -17,7 +16,17 @@ pipeline {
     stage('Git Checkout') {
         steps {
             checkout scm
-            // git branch: 'main', changelog: false, poll: false, url: 'https://github.com/terdiam/ci_cd_example.git' // if using cred git "credentialsId: ''"
+        }
+    }
+
+    stage('Detect Tag') {
+        sh 'git fetch --tags'
+        def tag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
+        if (tag) {
+            env.GIT_TAG_NAME = tag
+            echo "Build triggered by tag: ${env.GIT_TAG_NAME}"
+        } else {
+            echo "This is not a tag build."
         }
     }
 
@@ -47,7 +56,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:$TAG ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
       }
     }
 
@@ -55,8 +64,7 @@ pipeline {
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:$TAG"
-            sh "echo $TAG_MESSAGE"
+            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME"
           }
         }
       }
