@@ -5,12 +5,8 @@ pipeline {
     IMAGE_NAME = 'example-cicd'
     NAME_DEPLOYMENT = "example-cicd"
     REGISTRY = credentials('registry-docker')
-    RANCHER_URL = credentials('rancher-url')
-    CLUSTER_ID = 'local'
-    PROJECT_ID = credentials('project-id')
-    NAMESPACE = 'example'
-    RANCHER_ACCESS_KEY = credentials('rancher-access-key')
-    RANCHER_SCREET_KEY = credentials('rancher-screet-key')
+    TAG_MESSAGE = "${GIT_TAG_MESSAGE}"
+    TAG = "${GIT_TAG_NAME}"
   }
 
   triggers {
@@ -51,7 +47,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:latest ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$TAG ."
       }
     }
 
@@ -59,29 +55,12 @@ pipeline {
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:latest"
+            sh "docker push $REGISTRY/$IMAGE_NAME:$TAG"
+            sh "echo $TAG_MESSAGE"
           }
         }
       }
     }
-
-    stage('Deploy to Rancher') {
-      steps {
-        script {
-          // Send deployment request to Rancher
-          def response = sh(
-            script: """
-              curl -s -X POST "${RANCHER_URL}/project/${CLUSTER_ID}:${PROJECT_ID}/workloads/deployment:${NAMESPACE}:${NAME_DEPLOYMENT}?action=redeploy" \\
-                -H "Authorization: Bearer ${RANCHER_ACCESS_KEY}:${RANCHER_SCREET_KEY}" \\
-                -H "Content-Type: application/json" \\
-            """,
-            returnStdout: true
-          ).trim()
-
-          echo "Rancher API Response: ${response}"
-        }
-      }
-    }    
 
   }
 }
