@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: example-cicd
-        image: quantumteknologi/example-cicd:latest
+        image: quantumteknologi/example-cicd:v0.0.9
         resources:
           requests:
             cpu: 100m

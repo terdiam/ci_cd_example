@@ -61,7 +61,7 @@ pipeline {
 
     stage('Build Docker Image') {
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:${env.GIT_TAG_NAME} ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
       }
     }
 
@@ -69,7 +69,7 @@ pipeline {
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:${env.GIT_TAG_NAME}"
+            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME"
           }
         }
       }
