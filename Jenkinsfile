@@ -1,5 +1,5 @@
-def GIT_TAG_NAME = ''
-def GIT_COMMIT = ''
+def GIT_TAG_NAME_DEV = ''
+def GIT_TAG_NAME_PROD = ''
 def IS_TAG = ''
 def GIT_BRANCH = ''
 def IS_BUILD_BRANCH_MASTER = false
@@ -12,6 +12,8 @@ pipeline {
     IMAGE_NAME = 'example-cicd'
     NAME_DEPLOYMENT = "example-cicd"
     REGISTRY = credentials('registry-docker')
+    GROUP_TELEGRAM = credentials('group-telegram')
+    BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
   }
 
   triggers {
@@ -41,7 +43,7 @@ pipeline {
           echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
             IS_BUILD_BRANCH_MASTER = true
-            GIT_TAG_NAME = IS_TAG
+            GIT_TAG_NAME_PROD = IS_TAG
           } else {
             IS_BUILD_BRANCH_MASTER = false
           }
@@ -61,7 +63,7 @@ pipeline {
           echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
             IS_BUILD_BRANCH_DEVELOPMENT = true
-            GIT_TAG_NAME = IS_TAG
+            GIT_TAG_NAME_PROD = IS_TAG
           } else {
             IS_BUILD_BRANCH_DEVELOPMENT = false
           }
@@ -100,7 +102,7 @@ pipeline {
         }
       }
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME-dev:$GIT_TAG_NAME ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_DEV ."
       }
     }
 
@@ -111,7 +113,7 @@ pipeline {
         }
       }
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_PROD ."
       }
     }
 
@@ -124,7 +126,7 @@ pipeline {
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME-dev:$GIT_TAG_NAME"
+            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_DEV"
           }
         }
       }
@@ -139,7 +141,7 @@ pipeline {
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME"
+            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_PROD"
           }
         }
       }
@@ -150,6 +152,16 @@ pipeline {
     always {
         sh 'rm -f dependency-check-report.xml'
     }
+    success {
+      sendTelegram("✅ Jenkins build succeeded on branch $GIT_BRANCH.\nBuild: $IS_TAG")
+    }
+    failure {
+      sendTelegram("❌ Jenkins build succeeded on branch $GIT_BRANCH.\nBuild: $IS_TAG")
+    }
   }
 
+}
+
+def sendTelegram(String message) {
+    sh "curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$GROUP_TELEGRAM -d text=$message -d parse_mode=Markdown"
 }
