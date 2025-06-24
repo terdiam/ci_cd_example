@@ -29,7 +29,7 @@ pipeline {
         }
     }
 
-    stage('Branch Main check')
+    stage('Branch Main check') {
       when {
         branch 'main'
       }
@@ -142,11 +142,12 @@ pipeline {
         }
       }
     }
+  }
 
   post {
     always {
         sh 'rm -f dependency-check-report.xml'
     }
-  }    
+  }
 
 }
