@@ -1,6 +1,6 @@
 def GIT_TAG_NAME = ''
 def GIT_COMMIT = ''
-def IS_TAG = false
+def IS_TAG = ''
 def GIT_BRANCH = ''
 def IS_BUILD_BRANCH_MASTER = false
 def IS_BUILD_BRANCH_DEVELOPMENT = false
@@ -35,13 +35,13 @@ pipeline {
       }
       steps {
         script {
+          GIT_BRANCH = 'main'
           IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
+          echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
-            GIT_BRANCH = 'main'
             IS_BUILD_BRANCH_MASTER = true
             GIT_TAG_NAME = IS_TAG
           } else {
-            GIT_BRANCH = 'main'
             IS_BUILD_BRANCH_MASTER = false
           }
         }
@@ -54,13 +54,13 @@ pipeline {
       }
       steps {
         script {
+          GIT_BRANCH = 'development'
           IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
+          echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
-            GIT_BRANCH = 'development'
             IS_BUILD_BRANCH_DEVELOPMENT = true
             GIT_TAG_NAME = IS_TAG
           } else {
-            GIT_BRANCH = 'development'
             IS_BUILD_BRANCH_DEVELOPMENT = false
           }
         }
