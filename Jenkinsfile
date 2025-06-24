@@ -29,13 +29,14 @@ pipeline {
         }
     }
 
-    stage('Branch check') {
+    stage('Branch Main check') {
       when {
         branch 'main'
       }
       steps {
         script {
           GIT_BRANCH = 'main'
+          sh "git fetch --tags"
           IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
           echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
@@ -46,12 +47,16 @@ pipeline {
           }
         }
       }
+    }
+
+    stage('Branch Development check') {
       when {
         branch 'development'
       }
       steps {
         script {
           GIT_BRANCH = 'development'
+          sh "git fetch --tags"
           IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
           echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
@@ -62,7 +67,7 @@ pipeline {
           }
         }
       }
-    }
+    }         
 
     stage('Sonarcube Analisys') {
       environment {
