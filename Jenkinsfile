@@ -63,7 +63,7 @@ pipeline {
           echo "IS_TAG: $IS_TAG"
           if (IS_TAG) {
             IS_BUILD_BRANCH_DEVELOPMENT = true
-            GIT_TAG_NAME_PROD = IS_TAG
+            GIT_TAG_NAME_DEV = IS_TAG
           } else {
             IS_BUILD_BRANCH_DEVELOPMENT = false
           }
@@ -163,5 +163,10 @@ pipeline {
 }
 
 def sendTelegram(String message) {
-    sh "curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$GROUP_TELEGRAM -d text=$message -d parse_mode=Markdown"
+    sh """
+      curl -s -X POST https://api.telegram.org/bot${BOT_TOKEN}/sendMessage \\
+        -d chat_id=${GROUP_TELEGRAM} \\
+        -d text="${message}" \\
+        -d parse_mode=Markdown
+    """
 }
