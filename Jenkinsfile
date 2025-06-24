@@ -25,19 +25,19 @@ pipeline {
         }
     }
 
-    stage('Branch Master check')
+    stage('Branch Main check')
       when {
-        branch 'master'
+        branch 'main'
       }
       steps {
         script {
           IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
           if (IS_TAG) {
-            GIT_BRANCH = 'master'
+            GIT_BRANCH = 'main'
             IS_BUILD_BRANCH_MASTER = true
             GIT_TAG_NAME = IS_TAG
           } else {
-            GIT_BRANCH = 'master'
+            GIT_BRANCH = 'main'
             IS_BUILD_BRANCH_MASTER = false
           }
         }
@@ -98,7 +98,7 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image master') {
+    stage('Build Docker Image Main') {
       when {
         expression {
           IS_BUILD_BRANCH_MASTER
