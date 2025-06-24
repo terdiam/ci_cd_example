@@ -29,7 +29,7 @@ pipeline {
         }
     }
 
-    stage('Branch Main check') {
+    stage('Branch check') {
       when {
         branch 'main'
       }
@@ -46,9 +46,6 @@ pipeline {
           }
         }
       }
-    }
-
-    stage('Branch Development check') {
       when {
         branch 'development'
       }
@@ -65,7 +62,7 @@ pipeline {
           }
         }
       }
-    }         
+    }
 
     stage('Sonarcube Analisys') {
       environment {
