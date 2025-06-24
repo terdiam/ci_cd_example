@@ -1,3 +1,10 @@
+def GIT_TAG_NAME = ''
+def GIT_COMMIT = ''
+def IS_TAG = false
+def GIT_BRANCH = ''
+def IS_BUILD_BRANCH_MASTER = false
+def IS_BUILD_BRANCH_DEVELOPMENT = false
+
 pipeline {
   agent any
 
@@ -5,13 +12,12 @@ pipeline {
     IMAGE_NAME = 'example-cicd'
     NAME_DEPLOYMENT = "example-cicd"
     REGISTRY = credentials('registry-docker')
-    GIT_TAG_NAME = ''
   }
 
-  triggers {
-    githubPush()
+  options {
+    skipDefaultCheckout(true)
   }
-
+  
   stages {
     stage('Git Checkout') {
         steps {
@@ -19,21 +25,43 @@ pipeline {
         }
     }
 
-    stage('Detect Tag') {
-        steps {
-            script {
-                sh 'git fetch --tags'
-                def tag = sh(script: "git describe --tags --exact-match || true", returnStdout: true).trim()
-                if (tag) {
-                    GIT_TAG_NAME = tag
-                    echo "TAG: $tag"
-                    echo "Build triggered by tag: $GIT_TAG_NAME"
-                } else {
-                    echo "This is not a tag build."
-                }
-            }
+    stage('Branch Master check')
+      when {
+        branch 'master'
+      }
+      steps {
+        script {
+          IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
+          if (IS_TAG) {
+            GIT_BRANCH = 'master'
+            IS_BUILD_BRANCH_MASTER = true
+            GIT_TAG_NAME = IS_TAG
+          } else {
+            GIT_BRANCH = 'master'
+            IS_BUILD_BRANCH_MASTER = false
+          }
         }
+      }
     }
+
+    stage('Branch Development check') {
+      when {
+        branch 'development'
+      }
+      steps {
+        script {
+          IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
+          if (IS_TAG) {
+            GIT_BRANCH = 'development'
+            IS_BUILD_BRANCH_DEVELOPMENT = true
+            GIT_TAG_NAME = IS_TAG
+          } else {
+            GIT_BRANCH = 'development'
+            IS_BUILD_BRANCH_DEVELOPMENT = false
+          }
+        }
+      }
+    }         
 
     stage('Sonarcube Analisys') {
       environment {
@@ -59,13 +87,49 @@ pipeline {
       }
     }
 
-    stage('Build Docker Image') {
+    stage('Build Docker Image development') {
+      when {
+        expression {
+          IS_BUILD_BRANCH_DEVELOPMENT
+        }
+      }
       steps {
         sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
       }
     }
 
-    stage('Push Docker Image') {
+    stage('Build Docker Image master') {
+      when {
+        expression {
+          IS_BUILD_BRANCH_MASTER
+        }
+      }
+      steps {
+        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
+      }
+    }
+
+    stage('Push Docker Image development') {
+      when {
+        expression {
+          IS_BUILD_BRANCH_DEVELOPMENT
+        }
+      }
+      steps {
+        script {
+          withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
+            sh "docker push $REGISTRY/$IMAGE_NAME-dev:$GIT_TAG_NAME"
+          }
+        }
+      }
+    }
+
+    stage('Push Docker Image master') {
+      when {
+        expression {
+          IS_BUILD_BRANCH_MASTER
+        }
+      }
       steps {
         script {
           withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
@@ -75,5 +139,10 @@ pipeline {
       }
     }
 
-  }
+  post {
+    always {
+        sh 'rm -f dependency-check-report.xml'
+    }
+  }    
+
 }
