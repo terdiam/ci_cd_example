@@ -100,7 +100,7 @@ pipeline {
         }
       }
       steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME ."
+        sh "docker build -t $REGISTRY/$IMAGE_NAME-dev:$GIT_TAG_NAME ."
       }
     }
 
