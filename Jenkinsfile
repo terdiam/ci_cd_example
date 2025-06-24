@@ -14,6 +14,10 @@ pipeline {
     REGISTRY = credentials('registry-docker')
   }
 
+  triggers {
+    githubPush()
+  }  
+
   options {
     skipDefaultCheckout(true)
   }
