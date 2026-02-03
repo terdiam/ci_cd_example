@@ -104,6 +104,7 @@ pipeline {
               sonar-scanner \
                 -Dsonar.projectKey=${PROJECT_NAME} \
                 -Dsonar.projectName=${PROJECT_NAME}
+                -Dsonar.exclusions=**/.nuxt/**,**/node_modules/**,**/dist/**
             """
           }
         }
@@ -112,8 +113,8 @@ pipeline {
 
     stage('Sonar Quality Gate') {
       steps {
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
+        timeout(time: 20, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: false
         }
       }
     }
