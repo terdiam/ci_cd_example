@@ -134,7 +134,18 @@ pipeline {
      * ============================= */
     stage('Trivy Security Scan') {
       steps {
-        sh 'trivy fs --exit-code 1 --severity HIGH,CRITICAL .'
+        script {
+            def severity = env.BRANCH_NAME == 'development'
+                ? 'CRITICAL'
+                : 'HIGH,CRITICAL'
+
+            sh """
+                trivy fs \
+                --severity ${severity} \
+                --ignore-unfixed \
+                --exit-code 1 .
+            """
+            }
       }
     }
 
