@@ -1,9 +1,13 @@
 services:
-  example-cicd:
+  nuxt-app:
     build:
-      context: ./
+      context: .
       dockerfile: Dockerfile
-    
-    image: quantumteknologi/example-cicd:latest
     ports:
-      - 80:80
+      - 3000:3000
+    working_dir: /app
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
