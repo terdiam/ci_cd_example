@@ -100,7 +100,7 @@ pipeline {
           def scannerHome = tool name: SONAR_SCANNER_TOOL, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
           withSonarQubeEnv(installationName: SONAR_INSTALLATION, credentialsId: SONAR_CRED) {
             sh """
-              export PATH="${scannerHome}/bin:\${PATH}
+              export PATH="${scannerHome}/bin:\${PATH}"
               sonar-scanner \
                 -Dsonar.projectKey=${PROJECT_NAME} \
                 -Dsonar.projectName=${PROJECT_NAME}
