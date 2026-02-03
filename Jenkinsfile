@@ -152,21 +152,21 @@ pipeline {
     /* =============================
      * Prepare Environment
      * ============================= */
-    stage('Prepare Environment') {
-      steps {
-        script {
-          def envCred = BUILD_TYPE == 'production'
-            ? 'env-prod'
-            : BUILD_TYPE == 'stagging'
-              ? 'env-stag'
-              : 'env-dev'
+    // stage('Prepare Environment') {
+    //   steps {
+    //     script {
+    //       def envCred = BUILD_TYPE == 'production'
+    //         ? 'env-prod'
+    //         : BUILD_TYPE == 'stagging'
+    //           ? 'env-stag'
+    //           : 'env-dev'
 
-          withCredentials([file(credentialsId: envCred, variable: 'ENV_FILE')]) {
-            sh 'cp $ENV_FILE .env'
-          }
-        }
-      }
-    }
+    //       withCredentials([file(credentialsId: envCred, variable: 'ENV_FILE')]) {
+    //         sh 'cp $ENV_FILE .env'
+    //       }
+    //     }
+    //   }
+    // }
 
     /* =============================
      * Unit Test
