@@ -1,172 +1,257 @@
-def GIT_TAG_NAME_DEV = ''
-def GIT_TAG_NAME_PROD = ''
 def IS_TAG = ''
-def GIT_BRANCH = ''
-def IS_BUILD_BRANCH_MASTER = false
-def IS_BUILD_BRANCH_DEVELOPMENT = false
+def BUILD_TYPE = ''
+def IMAGE_VERSION = ''
+def NAME_SPACE = ''
 
 pipeline {
   agent any
 
   environment {
-    IMAGE_NAME = 'example-cicd'
-    NAME_DEPLOYMENT = "example-cicd"
-    REGISTRY = credentials('registry-docker')
+    IMAGE_NAME = 'ci-cd-example'
+    PROJECT_NAME = 'ci-cd-example'
+    REGISTRY = 'quantumteknologi'
+    GIT_REPO = 'github.com/terdiam/ci_cd_example.git'
+
+    REGISTRY_CRED = 'registry-docker'
+    SONAR_CRED = 'sonarcube'
+    SLACK_BOT_WEBHOOK_URL = credentials('SLACK_BOT_WEBHOOK_URL')
     GROUP_TELEGRAM = credentials('group-telegram')
     BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
+
+    KUBECONFIG_CREDENTIAL = 'rancher-prod'
   }
 
   triggers {
     githubPush()
-  }  
+  }
 
   options {
     skipDefaultCheckout(true)
+    timestamps()
+    disableConcurrentBuilds()
   }
-  
+
   stages {
-    stage('Git Checkout') {
-        steps {
-            checkout scm
-        }
-    }
 
-    stage('Branch Main check') {
+    /* =============================
+     * Checkout
+     * ============================= */
+    stage('Checkout') {
       when {
-        branch 'main'
+        anyOf {
+          branch 'master'
+          branch 'stagging'
+          branch 'development'
+        }
       }
       steps {
+        checkout scm
+        echo "Branch: ${env.BRANCH_NAME}"
+      }
+    }
+
+    /* =============================
+     * Tag & Branch Validation
+     * ============================= */
+    stage('Branch & Tag Validation') {
+      steps {
         script {
-          GIT_BRANCH = 'main'
-          sh "git fetch --tags"
-          IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
-          echo "IS_TAG: $IS_TAG"
-          if (IS_TAG) {
-            IS_BUILD_BRANCH_MASTER = true
-            GIT_TAG_NAME_PROD = IS_TAG
+          sh 'git fetch --tags'
+
+          IS_TAG = sh(
+            script: "git describe --exact-match --tags || echo ''",
+            returnStdout: true
+          ).trim()
+
+          if (!IS_TAG) {
+            error("❌ Build must be triggered by TAG")
+          }
+
+          if (IS_TAG.startsWith('dev-') && env.BRANCH_NAME == 'development') {
+            BUILD_TYPE = 'development'
+            NAME_SPACE = 'dev'
+          } else if (IS_TAG.startsWith('stag-') && env.BRANCH_NAME == 'stagging') {
+            BUILD_TYPE = 'stagging'
+            NAME_SPACE = 'stagging'
+          } else if (IS_TAG.startsWith('prod-') && env.BRANCH_NAME == 'master') {
+            BUILD_TYPE = 'production'
+            NAME_SPACE = 'production'
           } else {
-            IS_BUILD_BRANCH_MASTER = false
+            error("❌ Tag prefix & branch mismatch")
           }
+
+          IMAGE_VERSION = IS_TAG
+
+          sendTelegram("🚀 *Pipeline Triggered*\nProject: *$PROJECT_NAME*\nBranch: *${env.BRANCH_NAME}*\nTag: *$IS_TAG*\nEnv: *$BUILD_TYPE*")
+          sendSlack("🚀 Pipeline Triggered", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
         }
       }
     }
 
-    stage('Branch Development check') {
-      when {
-        branch 'development'
+    /* =============================
+     * SonarQube
+     * ============================= */
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv(credentialsId: SONAR_CRED) {
+          sh '''
+            sonar-scanner \
+              -Dsonar.projectKey=${PROJECT_NAME} \
+              -Dsonar.projectName=${PROJECT_NAME}
+          '''
+        }
       }
+    }
+
+    stage('Sonar Quality Gate') {
+      steps {
+        timeout(time: 5, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    /* =============================
+     * OWASP Dependency Check
+     * ============================= */
+    stage('OWASP Scan') {
+      steps {
+        dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'dp'
+        dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+      }
+    }
+
+    /* =============================
+     * Trivy Security Scan
+     * ============================= */
+    stage('Trivy Security Scan') {
+      steps {
+        sh 'trivy fs --exit-code 1 --severity HIGH,CRITICAL .'
+      }
+    }
+
+    /* =============================
+     * Prepare Environment
+     * ============================= */
+    stage('Prepare Environment') {
       steps {
         script {
-          GIT_BRANCH = 'development'
-          sh "git fetch --tags"
-          IS_TAG = sh(script: "git describe --exact-match --tags || echo ''", returnStdout: true).trim()
-          echo "IS_TAG: $IS_TAG"
-          if (IS_TAG) {
-            IS_BUILD_BRANCH_DEVELOPMENT = true
-            GIT_TAG_NAME_DEV = IS_TAG
-          } else {
-            IS_BUILD_BRANCH_DEVELOPMENT = false
-          }
-        }
-      }
-    }         
+          def envCred = BUILD_TYPE == 'production'
+            ? 'env-prod'
+            : BUILD_TYPE == 'stagging'
+              ? 'env-stag'
+              : 'env-dev'
 
-    stage('Sonarcube Analisys') {
-      environment {
-        scannerHome = tool 'sonar-scanner';
-      }
-      steps {
-        withSonarQubeEnv(credentialsId: 'sonarcube', installationName: 'sonar-scanner') {
-          sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectName=cicd-example -Dsonar.projectKey=cicd-example"
-        }
-      }
-    }
-
-    stage('OWASP SCAN') {
-        steps {
-            dependencyCheck additionalArguments: ' --scan ./', nvdCredentialsId: '7225b970-460c-4b83-ad2f-89f58888ca0f', odcInstallation: 'dp'
-            dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-        }
-    }
-
-    stage('Security Scan: Trivy') {
-      steps {
-        sh 'trivy fs --exit-code 1 . || echo "Vulnerabilities found"'
-      }
-    }
-
-    stage('Build Docker Image development') {
-      when {
-        expression {
-          IS_BUILD_BRANCH_DEVELOPMENT
-        }
-      }
-      steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_DEV ."
-      }
-    }
-
-    stage('Build Docker Image Main') {
-      when {
-        expression {
-          IS_BUILD_BRANCH_MASTER
-        }
-      }
-      steps {
-        sh "docker build -t $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_PROD ."
-      }
-    }
-
-    stage('Push Docker Image development') {
-      when {
-        expression {
-          IS_BUILD_BRANCH_DEVELOPMENT
-        }
-      }
-      steps {
-        script {
-          withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_DEV"
+          withCredentials([file(credentialsId: envCred, variable: 'ENV_FILE')]) {
+            sh 'cp $ENV_FILE .env'
           }
         }
       }
     }
 
-    stage('Push Docker Image master') {
-      when {
-        expression {
-          IS_BUILD_BRANCH_MASTER
+    /* =============================
+     * Unit Test
+     * ============================= */
+    stage('Unit Test') {
+      steps {
+        sh '''
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
+        '''
+      }
+    }
+
+    /* =============================
+     * Docker Build
+     * ============================= */
+    stage('Docker Build') {
+      steps {
+        sh """
+          docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION} .
+        """
+      }
+    }
+
+    /* =============================
+     * Trivy Image Scan
+     * ============================= */
+    stage('Trivy Image Scan') {
+      steps {
+        sh """
+          trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}
+        """
+      }
+    }
+
+    /* =============================
+     * Docker Push
+     * ============================= */
+    stage('Docker Push') {
+      steps {
+        withDockerRegistry(credentialsId: REGISTRY_CRED) {
+          sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}"
         }
       }
+    }
+
+    /* =============================
+     * Deploy
+     * ============================= */
+    stage('Deploy to Kubernetes') {
       steps {
-        script {
-          withDockerRegistry(credentialsId: 'bb6d4c11-0c95-4f28-90de-db262c4832f8') {
-            sh "docker push $REGISTRY/$IMAGE_NAME:$GIT_TAG_NAME_PROD"
-          }
+        withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL, variable: 'KUBECONFIG')]) {
+          sh """
+            export KUBECONFIG=${KUBECONFIG}
+            kubectl set image deployment/${IMAGE_NAME} \
+              ${IMAGE_NAME}=${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION} \
+              -n ${NAME_SPACE}
+          """
         }
       }
     }
   }
 
   post {
-    always {
-        sh 'rm -f dependency-check-report.xml'
-    }
     success {
-      sendTelegram("✅ Jenkins build succeeded on branch $GIT_BRANCH.\nBuild: $IS_TAG")
+      sendTelegram("✅ *DEPLOY SUCCESS*\nProject: $PROJECT_NAME\nEnv: $BUILD_TYPE\nTag: $IMAGE_VERSION")
+      sendSlack("✅ Build Success", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
     }
     failure {
-      sendTelegram("❌ Jenkins build succeeded on branch $GIT_BRANCH.\nBuild: $IS_TAG")
+      sendTelegram("❌ *DEPLOY FAILED*\nProject: $PROJECT_NAME\nEnv: $BUILD_TYPE\nTag: $IMAGE_VERSION")
+      sendSlack("❌ Build Failed", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
+    }
+    always {
+      sh '''
+        rm -f .env || true
+        docker image prune -f || true
+      '''
     }
   }
-
 }
 
+/* =============================
+ * Notification Helpers
+ * ============================= */
 def sendTelegram(String message) {
-    sh """
-      curl -s -X POST https://api.telegram.org/bot${BOT_TOKEN}/sendMessage \\
-        -d chat_id=${GROUP_TELEGRAM} \\
-        -d text="${message}" \\
-        -d parse_mode=Markdown
-    """
+  sh """
+    curl -s -X POST https://api.telegram.org/bot${BOT_TOKEN}/sendMessage \
+      -d chat_id=${GROUP_TELEGRAM} \
+      -d text="${message}" \
+      -d parse_mode=Markdown
+  """
+}
+
+def sendSlack(String status, String project, String branch, String tag, String type, String version) {
+  def payload = """
+  {
+    "text": "*${status}*\\n📦 Project: ${project}\\n🌿 Branch: ${branch}\\n🏷 Tag: ${tag}\\n🚀 Env: ${type}"
+  }
+  """
+  sh """
+    curl -X POST ${SLACK_BOT_WEBHOOK_URL} \
+      -H 'Content-Type: application/json' \
+      -d '${payload}'
+  """
 }

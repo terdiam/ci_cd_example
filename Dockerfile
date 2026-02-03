@@ -1,30 +1,33 @@
-# Build Stage 1
-
-FROM node:22-alpine AS build
+# =========================
+# Stage 1 — Builder
+# =========================
+FROM node:22-alpine AS builder
 
 WORKDIR /app
-
-RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
 
-RUN pnpm i
+RUN corepack enable \
+ && pnpm install --frozen-lockfile
 
-COPY . ./
+COPY . .
 
-RUN pnpm run build
+RUN pnpm build
 
-# Build Stage 2
 
-FROM node:22-alpine
+# =========================
+# Stage 2 — Runtime (distroless)
+# =========================
+FROM gcr.io/distroless/nodejs22-debian12
 
 WORKDIR /app
 
-COPY --from=build /app/.output/ ./
+ENV NODE_ENV=production
 
-ENV PORT=80
-ENV HOST=0.0.0.0
+# Copy hanya hasil build (Nuxt output)
+COPY --from=builder /app/.output ./
 
-EXPOSE 80
+EXPOSE 3000
 
-CMD ["node", "/app/server/index.mjs"]
+# ⚠️ distroless node sudah ENTRYPOINT ["node"]
+CMD ["server/index.mjs"]
