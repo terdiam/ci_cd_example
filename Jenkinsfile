@@ -16,15 +16,12 @@ pipeline {
     REGISTRY_URL = 'https://index.docker.io/v2/'
     SONAR_CRED = 'sonarcube'
     SONAR_INSTALLATION = 'sonar-scanner'
+    SONAR_SCANNER_TOOL = 'sonar-scanner'
     SLACK_BOT_WEBHOOK_URL = credentials('SLACK_BOT_WEBHOOK_URL')
     GROUP_TELEGRAM = credentials('group-telegram')
     BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
 
     KUBECONFIG_CREDENTIAL = 'rancher-prod'
-  }
-
-  tools {
-    sonarScanner 'sonar-scanner'
   }
 
   triggers {
@@ -99,12 +96,16 @@ pipeline {
      * ============================= */
     stage('SonarQube Analysis') {
       steps {
-        withSonarQubeEnv(installationName: SONAR_INSTALLATION, credentialsId: SONAR_CRED) {
-          sh '''
-            sonar-scanner \
-              -Dsonar.projectKey=${PROJECT_NAME} \
-              -Dsonar.projectName=${PROJECT_NAME}
-          '''
+        script {
+          def scannerHome = tool name: SONAR_SCANNER_TOOL, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+          withSonarQubeEnv(installationName: SONAR_INSTALLATION, credentialsId: SONAR_CRED) {
+            sh """
+              export PATH="${scannerHome}/bin:\${PATH}
+              sonar-scanner \
+                -Dsonar.projectKey=${PROJECT_NAME} \
+                -Dsonar.projectName=${PROJECT_NAME}
+            """
+          }
         }
       }
     }
