@@ -23,6 +23,10 @@ pipeline {
     KUBECONFIG_CREDENTIAL = 'rancher-prod'
   }
 
+  tools {
+    sonarScanner 'sonar-scanner'
+  }
+
   triggers {
     githubPush()
   }
