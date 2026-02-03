@@ -103,7 +103,7 @@ pipeline {
               export PATH="${scannerHome}/bin:\${PATH}"
               sonar-scanner \
                 -Dsonar.projectKey=${PROJECT_NAME} \
-                -Dsonar.projectName=${PROJECT_NAME}
+                -Dsonar.projectName=${PROJECT_NAME} \
                 -Dsonar.exclusions=**/.nuxt/**,**/node_modules/**,**/dist/**
             """
           }
