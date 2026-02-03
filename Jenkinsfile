@@ -13,7 +13,9 @@ pipeline {
     GIT_REPO = 'github.com/terdiam/ci_cd_example.git'
 
     REGISTRY_CRED = 'registry-docker'
+    REGISTRY_URL = 'https://index.docker.io/v2/'
     SONAR_CRED = 'sonarcube'
+    SONAR_INSTALLATION = 'sonar-scanner'
     SLACK_BOT_WEBHOOK_URL = credentials('SLACK_BOT_WEBHOOK_URL')
     GROUP_TELEGRAM = credentials('group-telegram')
     BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
@@ -93,7 +95,7 @@ pipeline {
      * ============================= */
     stage('SonarQube Analysis') {
       steps {
-        withSonarQubeEnv(credentialsId: SONAR_CRED) {
+        withSonarQubeEnv(installationName: SONAR_INSTALLATION, credentialsId: SONAR_CRED) {
           sh '''
             sonar-scanner \
               -Dsonar.projectKey=${PROJECT_NAME} \
@@ -190,7 +192,7 @@ pipeline {
      * ============================= */
     stage('Docker Push') {
       steps {
-        withDockerRegistry(credentialsId: REGISTRY_CRED) {
+        withDockerRegistry(url: REGISTRY_URL, credentialsId: REGISTRY_CRED) {
           sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}"
         }
       }
