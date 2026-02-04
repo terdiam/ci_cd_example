@@ -12,7 +12,7 @@ pipeline {
     REGISTRY = 'quantumteknologi'
     GIT_REPO = 'github.com/terdiam/ci_cd_example.git'
 
-    REGISTRY_CRED = 'registry-docker'
+    REGISTRY_CRED = 'dockerhub-qtn'
     REGISTRY_URL = 'https://index.docker.io/v2/'
     SONAR_CRED = 'sonarcube'
     SONAR_INSTALLATION = 'sonar-scanner'
