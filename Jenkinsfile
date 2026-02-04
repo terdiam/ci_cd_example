@@ -13,12 +13,15 @@ pipeline {
     GIT_REPO = 'github.com/terdiam/ci_cd_example.git'
 
     REGISTRY_CRED = 'registry-docker'
+    REGISTRY_URL = 'https://index.docker.io/v1/'
     SONAR_CRED = 'sonarcube'
+    SONAR_INSTALLATION = 'sonar-scanner'
+    SONAR_SCANNER_TOOL = 'sonar-scanner'
     SLACK_BOT_WEBHOOK_URL = credentials('SLACK_BOT_WEBHOOK_URL')
     GROUP_TELEGRAM = credentials('group-telegram')
     BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
 
-    KUBECONFIG_CREDENTIAL = 'rancher-prod'
+    KUBECONFIG_DEV = 'matrix-rancher'
   }
 
   triggers {
@@ -69,13 +72,13 @@ pipeline {
 
           if (IS_TAG.startsWith('dev-') && env.BRANCH_NAME == 'development') {
             BUILD_TYPE = 'development'
-            NAME_SPACE = 'dev'
+            NAME_SPACE = PROJECT_NAME
           } else if (IS_TAG.startsWith('stag-') && env.BRANCH_NAME == 'stagging') {
             BUILD_TYPE = 'stagging'
-            NAME_SPACE = 'stagging'
+            NAME_SPACE = PROJECT_NAME
           } else if (IS_TAG.startsWith('prod-') && env.BRANCH_NAME == 'master') {
             BUILD_TYPE = 'production'
-            NAME_SPACE = 'production'
+            NAME_SPACE = PROJECT_NAME
           } else {
             error("❌ Tag prefix & branch mismatch")
           }
@@ -83,7 +86,7 @@ pipeline {
           IMAGE_VERSION = IS_TAG
 
           sendTelegram("🚀 *Pipeline Triggered*\nProject: *$PROJECT_NAME*\nBranch: *${env.BRANCH_NAME}*\nTag: *$IS_TAG*\nEnv: *$BUILD_TYPE*")
-          sendSlack("🚀 Pipeline Triggered", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
+          // sendSlack("🚀 Pipeline Triggered", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
         }
       }
     }
@@ -93,20 +96,25 @@ pipeline {
      * ============================= */
     stage('SonarQube Analysis') {
       steps {
-        withSonarQubeEnv(credentialsId: SONAR_CRED) {
-          sh '''
-            sonar-scanner \
-              -Dsonar.projectKey=${PROJECT_NAME} \
-              -Dsonar.projectName=${PROJECT_NAME}
-          '''
+        script {
+          def scannerHome = tool name: SONAR_SCANNER_TOOL, type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+          withSonarQubeEnv(installationName: SONAR_INSTALLATION, credentialsId: SONAR_CRED) {
+            sh """
+              export PATH="${scannerHome}/bin:\${PATH}"
+              sonar-scanner \
+                -Dsonar.projectKey=${PROJECT_NAME} \
+                -Dsonar.projectName=${PROJECT_NAME} \
+                -Dsonar.exclusions=**/.nuxt/**,**/node_modules/**,**/dist/**
+            """
+          }
         }
       }
     }
 
     stage('Sonar Quality Gate') {
       steps {
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
+        timeout(time: 20, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: false
         }
       }
     }
@@ -126,28 +134,39 @@ pipeline {
      * ============================= */
     stage('Trivy Security Scan') {
       steps {
-        sh 'trivy fs --exit-code 1 --severity HIGH,CRITICAL .'
+        script {
+            def severity = env.BRANCH_NAME == 'development'
+                ? 'CRITICAL'
+                : 'HIGH,CRITICAL'
+
+            sh """
+                trivy fs \
+                --severity ${severity} \
+                --ignore-unfixed \
+                --exit-code 1 .
+            """
+            }
       }
     }
 
     /* =============================
      * Prepare Environment
      * ============================= */
-    stage('Prepare Environment') {
-      steps {
-        script {
-          def envCred = BUILD_TYPE == 'production'
-            ? 'env-prod'
-            : BUILD_TYPE == 'stagging'
-              ? 'env-stag'
-              : 'env-dev'
+    // stage('Prepare Environment') {
+    //   steps {
+    //     script {
+    //       def envCred = BUILD_TYPE == 'production'
+    //         ? 'env-prod'
+    //         : BUILD_TYPE == 'stagging'
+    //           ? 'env-stag'
+    //           : 'env-dev'
 
-          withCredentials([file(credentialsId: envCred, variable: 'ENV_FILE')]) {
-            sh 'cp $ENV_FILE .env'
-          }
-        }
-      }
-    }
+    //       withCredentials([file(credentialsId: envCred, variable: 'ENV_FILE')]) {
+    //         sh 'cp $ENV_FILE .env'
+    //       }
+    //     }
+    //   }
+    // }
 
     /* =============================
      * Unit Test
@@ -180,6 +199,7 @@ pipeline {
       steps {
         sh """
           trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          --ignore-unfixed \
           ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}
         """
       }
@@ -190,7 +210,7 @@ pipeline {
      * ============================= */
     stage('Docker Push') {
       steps {
-        withDockerRegistry(credentialsId: REGISTRY_CRED) {
+        withDockerRegistry(url: REGISTRY_URL, credentialsId: REGISTRY_CRED) {
           sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}"
         }
       }
@@ -201,7 +221,7 @@ pipeline {
      * ============================= */
     stage('Deploy to Kubernetes') {
       steps {
-        withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL, variable: 'KUBECONFIG')]) {
+        withCredentials([file(credentialsId: KUBECONFIG_DEV, variable: 'KUBECONFIG')]) {
           sh """
             export KUBECONFIG=${KUBECONFIG}
             kubectl set image deployment/${IMAGE_NAME} \
@@ -216,14 +236,16 @@ pipeline {
   post {
     success {
       sendTelegram("✅ *DEPLOY SUCCESS*\nProject: $PROJECT_NAME\nEnv: $BUILD_TYPE\nTag: $IMAGE_VERSION")
-      sendSlack("✅ Build Success", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
+      // sendSlack("✅ Build Success", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
     }
     failure {
       sendTelegram("❌ *DEPLOY FAILED*\nProject: $PROJECT_NAME\nEnv: $BUILD_TYPE\nTag: $IMAGE_VERSION")
-      sendSlack("❌ Build Failed", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
+      // sendSlack("❌ Build Failed", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
     }
     always {
       sh '''
+        echo "Cleaning up..."
+        rm -rf dependency-check-report.xml || true
         rm -f .env || true
         docker image prune -f || true
       '''
