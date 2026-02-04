@@ -12,7 +12,7 @@ pipeline {
     REGISTRY = 'quantumteknologi'
     GIT_REPO = 'github.com/terdiam/ci_cd_example.git'
 
-    REGISTRY_CRED = 'dockerhub-qtn'
+    REGISTRY_CRED = 'registry-docker'
     REGISTRY_URL = 'https://index.docker.io/v2/'
     SONAR_CRED = 'sonarcube'
     SONAR_INSTALLATION = 'sonar-scanner'
@@ -210,7 +210,7 @@ pipeline {
      * ============================= */
     stage('Docker Push') {
       steps {
-        withDockerRegistry(url: REGISTRY_URL, credentialsId: REGISTRY_CRED) {
+        withDockerRegistry(credentialsId: REGISTRY_CRED) {
           sh "docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}"
         }
       }
