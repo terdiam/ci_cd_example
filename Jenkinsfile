@@ -72,13 +72,13 @@ pipeline {
 
           if (IS_TAG.startsWith('dev-') && env.BRANCH_NAME == 'development') {
             BUILD_TYPE = 'development'
-            NAME_SPACE = 'dev'
+            NAME_SPACE = PROJECT_NAME
           } else if (IS_TAG.startsWith('stag-') && env.BRANCH_NAME == 'stagging') {
             BUILD_TYPE = 'stagging'
-            NAME_SPACE = 'stagging'
+            NAME_SPACE = PROJECT_NAME
           } else if (IS_TAG.startsWith('prod-') && env.BRANCH_NAME == 'master') {
             BUILD_TYPE = 'production'
-            NAME_SPACE = 'production'
+            NAME_SPACE = PROJECT_NAME
           } else {
             error("❌ Tag prefix & branch mismatch")
           }
