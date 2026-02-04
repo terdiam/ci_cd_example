@@ -21,7 +21,7 @@ pipeline {
     GROUP_TELEGRAM = credentials('group-telegram')
     BOT_TOKEN = credentials('TELEGRAM_BOT_TOKEN')
 
-    KUBECONFIG_CREDENTIAL = 'rancher-prod'
+    KUBECONFIG_DEV = 'matrix-rancher'
   }
 
   triggers {
@@ -221,7 +221,7 @@ pipeline {
      * ============================= */
     stage('Deploy to Kubernetes') {
       steps {
-        withCredentials([file(credentialsId: KUBECONFIG_CREDENTIAL, variable: 'KUBECONFIG')]) {
+        withCredentials([file(credentialsId: KUBECONFIG_DEV, variable: 'KUBECONFIG')]) {
           sh """
             export KUBECONFIG=${KUBECONFIG}
             kubectl set image deployment/${IMAGE_NAME} \
