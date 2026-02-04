@@ -18,7 +18,7 @@ RUN pnpm build
 # =========================
 # Stage 2 — Runtime (distroless)
 # =========================
-FROM gcr.io/distroless/nodejs22-debian12
+FROM gcr.io/distroless/nodejs22-debian13
 
 WORKDIR /app
 
