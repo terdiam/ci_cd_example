@@ -1,7 +1,7 @@
 # =========================
 # Stage 1 — Builder
 # =========================
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ RUN pnpm build
 # =========================
 # Stage 2 — Runtime (distroless)
 # =========================
-FROM gcr.io/distroless/nodejs22-debian13
+FROM gcr.io/distroless/nodejs24-debian13
 
 WORKDIR /app
 

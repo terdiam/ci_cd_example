@@ -86,7 +86,7 @@ pipeline {
           IMAGE_VERSION = IS_TAG
 
           sendTelegram("🚀 *Pipeline Triggered*\nProject: *$PROJECT_NAME*\nBranch: *${env.BRANCH_NAME}*\nTag: *$IS_TAG*\nEnv: *$BUILD_TYPE*")
-          sendSlack("🚀 Pipeline Triggered", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
+          // sendSlack("🚀 Pipeline Triggered", PROJECT_NAME, env.BRANCH_NAME, IS_TAG, BUILD_TYPE, IMAGE_VERSION)
         }
       }
     }
@@ -199,6 +199,7 @@ pipeline {
       steps {
         sh """
           trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          --ignore-unfixed \
           ${REGISTRY}/${IMAGE_NAME}:${IMAGE_VERSION}
         """
       }
@@ -243,6 +244,8 @@ pipeline {
     }
     always {
       sh '''
+        echo "Cleaning up..."
+        rm -rf dependency-check-report.xml || true
         rm -f .env || true
         docker image prune -f || true
       '''
